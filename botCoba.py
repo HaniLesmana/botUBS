@@ -1,7 +1,8 @@
+from email import message
 import logging
 from typing import Dict
 
-from telegram import ReplyKeyboardMarkup, Update, ReplyKeyboardRemove
+from telegram import ReplyKeyboardMarkup, Update, ReplyKeyboardRemove, User
 from telegram.ext import (
     Updater,
     CommandHandler,
@@ -20,10 +21,13 @@ logger = logging.getLogger(__name__)
 
 CHOOSING, TYPING_REPLY, TYPING_CHOICE = range(3)
 
+# reply_keyboard = [
+#     ['Age', 'Favourite colour'],
+#     ['Number of siblings', 'Something else...'],
+#     ['Done'],
+# ]
 reply_keyboard = [
-    ['Age', 'Favourite colour'],
-    ['Number of siblings', 'Something else...'],
-    ['Done'],
+    ['Ya', 'Tidak'],
 ]
 markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
 
@@ -37,13 +41,24 @@ def facts_to_str(user_data: Dict[str, str]) -> str:
 def start(update: Update, context: CallbackContext) -> int:
     """Start the conversation and ask user for input."""
     update.message.reply_text(
-        "Hi! My name is Doctor Botter. I will hold a more complex conversation with you. "
-        "Why don't you tell me something about yourself?",
-        reply_markup=markup,
+        "Hi! My name is Doctor Botter. Please insert your NIK and password (NIK-Password)",
     )
+    print(update.message.text)
+    return TYPING_REPLY
 
+def cekData(update: Update, context: CallbackContext) -> int:
+    """Ask the user for a description of a custom category."""
+    # update.message.reply_text(
+    #     'Alright, please send me the category first, for example "Most impressive skill"'
+    # )
+    # return TYPING_CHOICE
+
+def custom_choice(update: Update, context: CallbackContext) -> int:
+    """Ask the user for a description of a custom category."""
+    update.message.reply_text(
+        'apakah anda mengalami demam',reply_markup=markup 
+    )
     return CHOOSING
-
 
 def regular_choice(update: Update, context: CallbackContext) -> int:
     """Ask the user for info about the selected predefined choice."""
@@ -54,13 +69,12 @@ def regular_choice(update: Update, context: CallbackContext) -> int:
     return TYPING_REPLY
 
 
-def custom_choice(update: Update, context: CallbackContext) -> int:
-    """Ask the user for a description of a custom category."""
-    update.message.reply_text(
-        'Alright, please send me the category first, for example "Most impressive skill"'
-    )
-
-    return TYPING_CHOICE
+# def custom_choice(update: Update, context: CallbackContext) -> int:
+#     """Ask the user for a description of a custom category."""
+#     update.message.reply_text(
+#         'Alright, please send me the category first, for example "Most impressive skill"'
+#     )
+#     return TYPING_CHOICE
 
 
 def received_information(update: Update, context: CallbackContext) -> int:
@@ -100,7 +114,7 @@ def main() -> None:
     """Run the bot."""
     # Create the Updater and pass it your bot's token.
     updater = Updater("5178114629:AAEAYhJz1XRZSjiXfmJIP_AFFNdC6c1nwUQ")
-
+    # regex (nik-password) (\d{16})[-](\w)
     # Get the dispatcher to register handlers
     dispatcher = updater.dispatcher
 
@@ -121,9 +135,9 @@ def main() -> None:
             ],
             TYPING_REPLY: [
                 MessageHandler(
-                    Filters.text & ~(Filters.command | Filters.regex('^Done$')),
-                    received_information,
+                    Filters.text & ~(Filters.command | Filters.regex('^Done$')), custom_choice
                 )
+                
             ],
         },
         fallbacks=[MessageHandler(Filters.regex('^Done$'), done)],
