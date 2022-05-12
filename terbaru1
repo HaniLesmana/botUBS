@@ -27,7 +27,7 @@ reply_keyboard = [
     ['Ya', 'Tidak'],
 ]
 markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-step1, step2, step3, step4 = range(4)
+step1, step2, step3, step4, step5, step6, step7 = range(7)
 
 def start(update: Update, context: CallbackContext) -> int:
     """Start the conversation and ask user for input."""
@@ -38,22 +38,93 @@ def start(update: Update, context: CallbackContext) -> int:
 
 def cekData(update: Update, context: CallbackContext) -> int:
     """Ask the user for info about the selected predefined choice."""        
-    text = update.message.text.split("-") 
-    nik = text[0]
-    password = text[1]
+    text = ""
+    nik = ""
+    password = ""
+    format_salah = False
+    try:
+        text = update.message.text.split("-") 
+        nik = text[0]
+        password = text[1]
+    except:
+        format_salah = True
+        update.message.reply_text('Format salah (Contoh : "30123534345-password")')
     sql.execute("select * from karyawan where nik = '{}' and password = '{}' ".format(nik,password))
     hasil_sql = sql.fetchall()
-    if len(hasil_sql)<=0:
+    if len(hasil_sql)<=0 & format_salah == False:
         update.message.reply_text('User tidak ada')    
     else:
+        context.user_data['nik'] = nik
+        context.user_data['password'] = password
+        context.user_data['nama'] = hasil_sql[0][1]
         update.message.reply_text(f'Halo, {hasil_sql[0][1]}. Please click "/continue" to start')
         return step1    
 
 def quest1(update: Update, context: CallbackContext) -> int:
-    update.message.reply_text(
-        'apakah anda mengalami demam?',reply_markup=markup 
-    )
+    if len(context.user_data)>0:
+        update.message.reply_text(
+            'apakah anda mengalami demam?',reply_markup=markup 
+        )
+        return step2
+    else :
+        update.message.reply_text(
+            'Please click "/start"' 
+        )
 
+def quest2(update: Update, context: CallbackContext) -> int:
+    if len(context.user_data)>0:
+        update.message.reply_text(
+            'apakah anda mengalami batuk/pilek atau keduanya?',reply_markup=markup 
+        )
+        return step3
+    else :
+        update.message.reply_text(
+            'Please click "/start"'
+        )
+
+def quest3(update: Update, context: CallbackContext) -> int:
+    if len(context.user_data)>0:
+        update.message.reply_text(
+            'Apakah anda mengalami penurunan kemampuan penciuman dan pengecap ?',reply_markup=markup 
+        )
+        return step4
+    else :
+        update.message.reply_text(
+            'Please click "/start"'
+        )
+
+def quest4(update: Update, context: CallbackContext) -> int:
+    if len(context.user_data)>0:
+        update.message.reply_text(
+            'Apakah anda mengalami nyeri tenggorokan ?',reply_markup=markup 
+        )
+        return step5
+    else :
+        update.message.reply_text(
+            'Please click "/start"' 
+        )
+
+def quest5(update: Update, context: CallbackContext) -> int:
+    if len(context.user_data)>0:
+        update.message.reply_text(
+            'Apakah anda mengalami lemah, letih dan lesu ?',reply_markup=markup 
+        )
+        return step6
+    else :
+        update.message.reply_text(
+            'Please click "/start"' 
+        )
+
+def quest6(update: Update, context: CallbackContext) -> int:
+    if len(context.user_data)>0:
+        update.message.reply_text(
+            'Apakah anda mengalami sesak nafas ?',reply_markup=markup 
+        )
+        return step7
+    else :
+        update.message.reply_text(
+            'Please click "/start"'
+        )
 def main() -> None:
     """Run the bot."""
     # Create the Updater and pass it your bot's token.
@@ -70,7 +141,37 @@ def main() -> None:
                 MessageHandler(
                     Filters.text & ~(Filters.command), cekData
                 ),
-                MessageHandler(Filters.regex('^/s$'), quest1),                
+                MessageHandler(Filters.regex('^/continue$'), quest1),                
+            ],
+            step2 : [
+                MessageHandler(
+                    Filters.text & ~(Filters.command), quest2
+                ),
+            ],
+            step3 : [
+                MessageHandler(
+                    Filters.text & ~(Filters.command), quest3
+                ),
+            ],
+            step4 : [
+                MessageHandler(
+                    Filters.text & ~(Filters.command), quest4
+                ),
+            ],
+            step5 : [
+                MessageHandler(
+                    Filters.text & ~(Filters.command), quest5
+                ),
+            ],
+            step6 : [
+                MessageHandler(
+                    Filters.text & ~(Filters.command), quest6
+                ),
+            ],
+            step7 : [
+                MessageHandler(
+                    Filters.text & ~(Filters.command), quest5
+                ),
             ]
         },
         fallbacks=[MessageHandler(Filters.regex('^Done$'),cekData)],
