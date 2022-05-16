@@ -1,6 +1,7 @@
 from cmath import log
 import logging
 import telebot
+from datetime import date
 import mysql.connector
 from telebot import types
 from telegram import ReplyKeyboardMarkup, Update, ReplyKeyboardRemove, InlineKeyboardButton
@@ -28,7 +29,8 @@ reply_keyboard = [
     ['Ya', 'Tidak'],
 ]
 markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-step1, step2, step3, step4, step5, step6, step7,stepAdmin1, stepAdminCreate,stepAdminRead = range(10)
+today = date.today()
+question,step1, step2, hitungNilai,stepAdmin1, stepAdminCreate,stepAdminRead = range(7)
 
 def start(update: Update, context: CallbackContext) -> int:
     """Start the conversation and ask user for input."""
@@ -54,20 +56,27 @@ def cekData(update: Update, context: CallbackContext) -> int:
     sql.execute("select * from karyawan where nik = '{}' and password = '{}' ".format(nik,password))
     hasil_sql = sql.fetchall()
     if (nik=="admin") and (password=="admin") and format_salah == False:
-        logging.basicConfig("TES")
         context.user_data['nik'] = "admin"
         context.user_data['password'] = "admin"
-        context.user_data['nama'] = "Admin"
+        context.user_data['nama'] = "Admin"        
         update.message.reply_text(f'Halo, Admin! Please click "/continue" to start')
         return stepAdmin1    
     if len(hasil_sql)<=0 and format_salah == False:
         update.message.reply_text('User tidak ada')    
     else:
-        context.user_data['nik'] = nik
-        context.user_data['password'] = password
-        context.user_data['nama'] = hasil_sql[0][1]
-        update.message.reply_text(f'Halo, {hasil_sql[0][1]}. Please click "/continue" to start')
-        return step1    
+        d3 = today.strftime("%y/%m/%d")
+        sql.execute("select * from data_survey where nik = '{}' and tanggal_isi = '{}' ".format(nik,d3))
+        data_survey = sql.fetchall()
+        if len(data_survey)>0:
+            update.message.reply_text(f'Halo, {hasil_sql[0][1]}. Anda telah mengisi survey hari ini')    
+        else:
+            context.user_data['nik'] = nik
+            context.user_data['password'] = password
+            context.user_data['nama'] = hasil_sql[0][1]
+            context.user_data['ctrPertanyaan'] = 0
+            context.user_data['jawaban'] = 0 
+            update.message.reply_text(f'Halo, {hasil_sql[0][1]}. Please click "/continue" to start')
+            return question    
 
 def admin1(update: Update, context: CallbackContext) -> int:
     keyboard = [
@@ -85,22 +94,32 @@ def admin1(update: Update, context: CallbackContext) -> int:
         )
 
 def adminCreate(update: Update, context: CallbackContext) -> int:
+    format_salah = False
     if len(context.user_data)>0:
-        update.message.reply_text(
-            'Inputkan pertanyaan! (Format : pertanyaan-nilai)' 
-        )
-        text = update.message.text.split("-") 
-        pertanyaan = text[0]
-        nilai = text[1]   
-        
-        sql.execute("select count(*) from data_pertanyaan")
-        hasilquery = sql.fetchone()
-        hasil = str((hasilquery[0]+1))
-        id = "P_"+(hasil).zfill(3)
-        query = "INSERT INTO data_pertanyaan (ID_pertanyaan, pertanyaan, nilai) VALUES (%s, %s, %s)"
-        val = (id, pertanyaan, nilai)
-        sql.execute(query, val) 
-        mydb.commit()
+        if update.message.text == "/done":
+            return stepAdmin1
+        else :
+            update.message.reply_text(
+                'Inputkan pertanyaan! (Format : pertanyaan-nilai), Click /done untuk stop' 
+            )
+            if update.message.text != "1. Create":                
+                try:
+                    text = update.message.text.split("-") 
+                    pertanyaan = text[0]
+                    nilai = text[1]  
+                except:
+                    format_salah = True
+                    update.message.reply_text('Format salah (Contoh : "pertanyaan-nilai")')
+                
+                if format_salah == False :            
+                    sql.execute("select count(*) from data_pertanyaan")
+                    hasilquery = sql.fetchone()
+                    hasil = str((hasilquery[0]+1))
+                    id = "P_"+(hasil).zfill(3)
+                    query = "INSERT INTO data_pertanyaan (ID_pertanyaan, pertanyaan, nilai) VALUES (%s, %s, %s)"
+                    val = (id, pertanyaan, nilai)
+                    sql.execute(query, val) 
+                    mydb.commit()
     else :
         update.message.reply_text(
             'Please click "/start"' 
@@ -117,15 +136,32 @@ def adminRead(update: Update, context: CallbackContext) -> int:
             'Please click "/start"' 
         )
 
-def quest1(update: Update, context: CallbackContext, ctrPertanyaan) -> int:
-    if len(context.user_data)>0:
+def quest1(update: Update, context: CallbackContext) -> int:    
+    if len(context.user_data)>0:        
+        ctr = context.user_data["ctrPertanyaan"]      
         sql.execute("SELECT * from data_pertanyaan")
         hasil = sql.fetchall()
-
-        update.message.reply_text(
-            hasil,reply_markup=markup 
-        )
-        return step2
+        if ctr>0 :
+            if update.message.text == "Ya" :   
+                context.user_data["jawaban"] = context.user_data["jawaban"] + hasil[ctr-1][2]
+                  
+        if ctr < len(hasil):
+            update.message.reply_text(
+                hasil[ctr][1] ,reply_markup=markup 
+            )
+            context.user_data["ctrPertanyaan"] = ctr+1      
+            return question        
+        else:                         
+            update.message.reply_text(
+                context.user_data["jawaban"],reply_markup=ReplyKeyboardRemove()
+            )            
+            d3 = today.strftime("%y/%m/%d")
+            query = "INSERT INTO data_survey (NIK, tanggal_isi, skor) VALUES (%s, %s, %s)"
+            val = (context.user_data["nik"],d3 , context.user_data["jawaban"])
+            sql.execute(query, val) 
+            mydb.commit()
+            return hitungNilai  
+                    
     else :
         update.message.reply_text(
             'Please click "/start"' 
@@ -134,57 +170,13 @@ def quest1(update: Update, context: CallbackContext, ctrPertanyaan) -> int:
 def quest2(update: Update, context: CallbackContext) -> int:
     if len(context.user_data)>0:
         update.message.reply_text(
-            'apakah anda mengalami batuk/pilek atau keduanya?',reply_markup=markup 
-        )
-        return step3
+            'BERES',reply_markup=markup 
+        )        
     else :
         update.message.reply_text(
             'Please click "/start"'
         )
 
-def quest3(update: Update, context: CallbackContext) -> int:
-    if len(context.user_data)>0:
-        update.message.reply_text(
-            'Apakah anda mengalami penurunan kemampuan penciuman dan pengecap ?',reply_markup=markup 
-        )
-        return step4
-    else :
-        update.message.reply_text(
-            'Please click "/start"'
-        )
-
-def quest4(update: Update, context: CallbackContext) -> int:
-    if len(context.user_data)>0:
-        update.message.reply_text(
-            'Apakah anda mengalami nyeri tenggorokan ?',reply_markup=markup 
-        )
-        return step5
-    else :
-        update.message.reply_text(
-            'Please click "/start"' 
-        )
-
-def quest5(update: Update, context: CallbackContext) -> int:
-    if len(context.user_data)>0:
-        update.message.reply_text(
-            'Apakah anda mengalami lemah, letih dan lesu ?',reply_markup=markup 
-        )
-        return step6
-    else :
-        update.message.reply_text(
-            'Please click "/start"' 
-        )
-
-def quest6(update: Update, context: CallbackContext) -> int:
-    if len(context.user_data)>0:
-        update.message.reply_text(
-            'Apakah anda mengalami sesak nafas ?',reply_markup=markup 
-        )
-        return step7
-    else :
-        update.message.reply_text(
-            'Please click "/start"'
-        )
 def main() -> None:
     """Run the bot."""
     # Create the Updater and pass it your bot's token.
@@ -192,7 +184,6 @@ def main() -> None:
     # regex (nik-password) (\d{16})[-](\w)
     # Get the dispatcher to register handlers
     dispatcher = updater.dispatcher
-    ctrPertanyaan = 0
     # Add conversation handler with the states CHOOSING, TYPING_CHOICE and TYPING_REPLY
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
@@ -201,12 +192,11 @@ def main() -> None:
                 MessageHandler(
                     Filters.text & ~(Filters.command), cekData
                 ),
-                MessageHandler(Filters.regex('^/continue$'), admin1),                
+                MessageHandler(Filters.regex('^(/continue|/done)$'), admin1),                
             ],
-            stepAdminCreate: [
-                MessageHandler(
-                    Filters.text & ~(Filters.command), adminCreate
-                ),             
+            stepAdminCreate: [                
+                MessageHandler(Filters.regex('^1. Create$'), adminCreate),
+                MessageHandler(Filters.regex('^2. Read$'), adminRead),
             ],
             stepAdminRead: [
                 MessageHandler(
@@ -217,38 +207,15 @@ def main() -> None:
                 MessageHandler(
                     Filters.text & ~(Filters.command), cekData
                 ),
-                MessageHandler(Filters.regex('^/continue$'), quest1(ctrPertanyaan)),                         
+                
             ],
-            step2 : [
-                MessageHandler(
-                    Filters.text & ~(Filters.command), quest2
-                ),
+            question : [
+                MessageHandler(Filters.regex('^(/continue|Ya|Tidak)$'), quest1)                         
             ],
-            step3 : [
-                MessageHandler(
-                    Filters.text & ~(Filters.command), quest3
-                ),
-            ],
-            step4 : [
-                MessageHandler(
-                    Filters.text & ~(Filters.command), quest4
-                ),
-            ],
-            step5 : [
-                MessageHandler(
-                    Filters.text & ~(Filters.command), quest5
-                ),
-            ],
-            step6 : [
-                MessageHandler(
-                    Filters.text & ~(Filters.command), quest6
-                ),
-            ],
-            step7 : [
-                MessageHandler(
-                    Filters.text & ~(Filters.command), quest5
-                ),
+            hitungNilai : [
+                MessageHandler(Filters.regex('^(/continue|Ya|Tidak)$'), quest2)                         
             ]
+
         },
         fallbacks=[MessageHandler(Filters.regex('^Done$'),cekData)],
     )
