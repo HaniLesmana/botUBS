@@ -117,13 +117,13 @@ def adminRead(update: Update, context: CallbackContext) -> int:
             'Please click "/start"' 
         )
 
-def quest1(update: Update, context: CallbackContext) -> int:
+def quest1(update: Update, context: CallbackContext, ctrPertanyaan) -> int:
     if len(context.user_data)>0:
         sql.execute("SELECT * from data_pertanyaan")
         hasil = sql.fetchall()
-        temp = len(hasil)        
+
         update.message.reply_text(
-            len(hasil),reply_markup=markup 
+            hasil,reply_markup=markup 
         )
         return step2
     else :
@@ -217,7 +217,7 @@ def main() -> None:
                 MessageHandler(
                     Filters.text & ~(Filters.command), cekData
                 ),
-                MessageHandler(Filters.regex('^/continue$'), quest1),                
+                MessageHandler(Filters.regex('^/continue$'), quest1(ctrPertanyaan)),                         
             ],
             step2 : [
                 MessageHandler(
