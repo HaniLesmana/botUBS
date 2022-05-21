@@ -2,6 +2,7 @@ from cmath import log
 import logging
 import telebot
 from datetime import date
+from tabulate import tabulate
 import mysql.connector
 from telebot import types
 from telegram import ReplyKeyboardMarkup, Update, ReplyKeyboardRemove, InlineKeyboardButton
@@ -128,14 +129,33 @@ def adminRead(update: Update, context: CallbackContext) -> int:
     if len(context.user_data)>0:        
         sql.execute("SELECT * from data_pertanyaan")
         hasil = sql.fetchall()
+        col_names = ["Id    ","               Pertanyaan             "," Nilai "]
+        # temp = []
+        # for i in range(len(hasil)):
+        #     temp.append("ID Pertanyaan : "+ str(hasil[i][0])+ " pertanyaan: "+ str(hasil[i][1])+ "nilai : "+ str(hasil[i][2]))                 
         update.message.reply_text(
-            hasil 
+            tabulate(hasil, headers=col_names)
         )
     else :
         update.message.reply_text(
             'Please click "/start"' 
         )
 
+def adminUpdate(update: Update, context: CallbackContext) -> int:
+    if len(context.user_data)>0:        
+        sql.execute("SELECT * from data_pertanyaan")
+        hasil = sql.fetchall()
+        col_names = ["Id    ","               Pertanyaan             "," Nilai "]
+        # temp = []
+        # for i in range(len(hasil)):
+        #     temp.append("ID Pertanyaan : "+ str(hasil[i][0])+ " pertanyaan: "+ str(hasil[i][1])+ "nilai : "+ str(hasil[i][2]))                 
+        update.message.reply_text(
+            tabulate(hasil, headers=col_names)
+        )
+    else :
+        update.message.reply_text(
+            'Please click "/start"' 
+        )
 def quest1(update: Update, context: CallbackContext) -> int:    
     if len(context.user_data)>0:        
         ctr = context.user_data["ctrPertanyaan"]      
