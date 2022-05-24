@@ -102,7 +102,7 @@ def adminCreate(update: Update, context: CallbackContext) -> int:
         else :
             update.message.reply_text(
                 'Inputkan pertanyaan! (Format : pertanyaan-nilai), Click /done untuk stop' 
-            )
+            )            
             if update.message.text != "1. Create":                
                 try:
                     text = update.message.text.split("-") 
@@ -121,6 +121,7 @@ def adminCreate(update: Update, context: CallbackContext) -> int:
                     val = (id, pertanyaan, nilai)
                     sql.execute(query, val) 
                     mydb.commit()
+            return stepAdminCreate
     else :
         update.message.reply_text(
             'Please click "/start"' 
@@ -215,8 +216,8 @@ def main() -> None:
                 MessageHandler(Filters.regex('^(/continue|/done)$'), admin1),                
             ],
             stepAdminCreate: [                
-                MessageHandler(Filters.regex('^1. Create$'), adminCreate),
                 MessageHandler(Filters.regex('^2. Read$'), adminRead),
+                MessageHandler(Filters.regex('^(1. Create$|\w)'), adminCreate),                
             ],
             stepAdminRead: [
                 MessageHandler(
