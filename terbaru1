@@ -6,6 +6,7 @@ from tabulate import tabulate
 import mysql.connector
 from telebot import types
 from telegram import ReplyKeyboardMarkup, Update, ReplyKeyboardRemove, InlineKeyboardButton
+import telegram
 from telegram.ext import (
     Updater,
     CommandHandler,
@@ -34,55 +35,88 @@ today = date.today()
 question,step1, step2, hitungNilai,stepAdmin1, stepAdminCreate,stepAdminRead = range(7)
 
 def start(update: Update, context: CallbackContext) -> int:
-    """Start the conversation and ask user for input."""
+    """Start the conversation and ask user for input."""        
+    req_contact = [ 
+        [telegram.KeyboardButton('Share contact', request_contact=True)]
+    ]
+    markup2 = ReplyKeyboardMarkup(req_contact, one_time_keyboard=True)
     update.message.reply_text(
-        "Hi! My name is Doctor Botter. Please insert your NIK and password (Format: NIK-Password )",
-    )
+        "Hi! My name is Doctor Botter. Please share your phone number to start this survei",reply_markup=markup2
+    )        
     ctrPertanyaan = 0    
     return step1
 
 def cekData(update: Update, context: CallbackContext) -> int:
-    """Ask the user for info about the selected predefined choice."""        
-    text = ""
-    nik = ""
-    password = ""
-    format_salah = False
-    try:
-        text = update.message.text.split("-") 
-        nik = text[0]
-        password = text[1]
-    except:
-        format_salah = True
-        update.message.reply_text('Format salah (Contoh : "30123534345-password")')
-    sql.execute("select * from karyawan where nik = '{}' and password = '{}' ".format(nik,password))
+    """Ask the user for info about the selected predefined choice."""            
+    contact = update.effective_message.contact
+    phone = contact.phone_number   
+    print(phone)
+    sql.execute("select * from karyawan where phone_number = '{}' ".format(phone))
     hasil_sql = sql.fetchall()
-    if (nik=="admin") and (password=="admin") and format_salah == False:
-        context.user_data['nik'] = "admin"
-        context.user_data['password'] = "admin"
-        context.user_data['nama'] = "Admin"        
-        update.message.reply_text(f'Halo, Admin! Please click "/continue" to start')
-        return stepAdmin1    
-    if len(hasil_sql)<=0 and format_salah == False:
-        update.message.reply_text('User tidak ada')    
-    else:
+    if phone == '+62895800288077' :
+        context.user_data['nik'] = "hasil_sql[0][0]"
+        context.user_data['nama'] = "hasil_sql[0][1]"
+        context.user_data['ctrPertanyaan'] = 0
+        context.user_data['jawaban'] = 0 
+        update.message.reply_text(f'Halo, Admin. Please click "/continue" to start')
+        return stepAdmin1
+
+    if len(hasil_sql)<=0 :
+        update.message.reply_text('Maaf, Anda tidak terdaftar', reply_markup=ReplyKeyboardRemove())
+    else:        
         d3 = today.strftime("%y/%m/%d")
-        sql.execute("select * from data_survey where nik = '{}' and tanggal_isi = '{}' ".format(nik,d3))
+        sql.execute("select * from data_survey where phone_number = '{}' and tanggal_isi = '{}' ".format(phone,d3))
         data_survey = sql.fetchall()
         if len(data_survey)>0:
             update.message.reply_text(f'Halo, {hasil_sql[0][1]}. Anda telah mengisi survey hari ini')    
         else:
-            context.user_data['nik'] = nik
-            context.user_data['password'] = password
+            context.user_data['nik'] = hasil_sql[0][0]
             context.user_data['nama'] = hasil_sql[0][1]
             context.user_data['ctrPertanyaan'] = 0
             context.user_data['jawaban'] = 0 
             update.message.reply_text(f'Halo, {hasil_sql[0][1]}. Please click "/continue" to start')
-            return question    
+            return question
+
+    # text = ""
+    # nik = ""
+    # password = ""
+    # format_salah = False
+    # try:
+    #     text = update.message.text.split("-") 
+    #     nik = text[0]
+    #     password = text[1]
+    # except:
+    #     format_salah = True
+    #     update.message.reply_text('Format salah (Contoh : "30123534345-password")')
+    # sql.execute("select * from karyawan where nik = '{}' and password = '{}' ".format(nik,password))
+    # hasil_sql = sql.fetchall()
+    # if (nik=="admin") and (password=="admin") and format_salah == False:
+    #     context.user_data['nik'] = "admin"
+    #     context.user_data['password'] = "admin"
+    #     context.user_data['nama'] = "Admin"        
+    #     update.message.reply_text(f'Halo, Admin! Please click "/continue" to start')
+    #     return stepAdmin1    
+    # if len(hasil_sql)<=0 and format_salah == False:
+    #     update.message.reply_text('User tidak ada')    
+    # else:
+    #     d3 = today.strftime("%y/%m/%d")
+    #     sql.execute("select * from data_survey where nik = '{}' and tanggal_isi = '{}' ".format(nik,d3))
+    #     data_survey = sql.fetchall()
+    #     if len(data_survey)>0:
+    #         update.message.reply_text(f'Halo, {hasil_sql[0][1]}. Anda telah mengisi survey hari ini')    
+    #     else:
+    #         context.user_data['nik'] = nik
+    #         context.user_data['password'] = password
+    #         context.user_data['nama'] = hasil_sql[0][1]
+    #         context.user_data['ctrPertanyaan'] = 0
+    #         context.user_data['jawaban'] = 0 
+    #         update.message.reply_text(f'Halo, {hasil_sql[0][1]}. Please click "/continue" to start')
+    #         return question    
 
 def admin1(update: Update, context: CallbackContext) -> int:
     keyboard = [
         ["1. Create","2. Read","3. Update","4. Delete"],
-    ]    
+    ]           
     markupadmin1 = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
     if len(context.user_data)>0:
         update.message.reply_text(
@@ -209,7 +243,7 @@ def main() -> None:
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
-            stepAdmin1: [
+            stepAdmin1: [                
                 MessageHandler(
                     Filters.text & ~(Filters.command), cekData
                 ),
@@ -225,8 +259,9 @@ def main() -> None:
                 ),             
             ],
             step1: [
+                MessageHandler(Filters.contact, cekData),
                 MessageHandler(
-                    Filters.text & ~(Filters.command), cekData
+                    Filters.text & ~(Filters.contact), cekData
                 ),
                 
             ],
