@@ -41,7 +41,7 @@ def start(update: Update, context: CallbackContext) -> int:
     ]
     markup2 = ReplyKeyboardMarkup(req_contact, one_time_keyboard=True)
     update.message.reply_text(
-        "Hi! My name is Doctor Botter. Please share your phone number to start this survei",reply_markup=markup2
+        "Hi! My name is Doctor Botter. Please share your phone number to start",reply_markup=markup2
     )        
     ctrPertanyaan = 0    
     return step1
@@ -59,7 +59,7 @@ def cekData(update: Update, context: CallbackContext) -> int:
         context.user_data['ctrPertanyaan'] = 0
         context.user_data['jawaban'] = 0 
         update.message.reply_text(f'Halo, Admin. Please click "/continue" to start')
-        return stepAdmin1
+        return question
 
     if len(hasil_sql)<=0 :
         update.message.reply_text('Maaf, Anda tidak terdaftar', reply_markup=ReplyKeyboardRemove())
@@ -198,7 +198,7 @@ def quest1(update: Update, context: CallbackContext) -> int:
         hasil = sql.fetchall()
         if ctr>0 :
             if update.message.text == "Ya" :   
-                context.user_data["jawaban"] = context.user_data["jawaban"] + hasil[ctr-1][2]
+                context.user_data["jawaban"] = context.user_data["jawaban"] + 1
                   
         if ctr < len(hasil):
             update.message.reply_text(
@@ -206,9 +206,16 @@ def quest1(update: Update, context: CallbackContext) -> int:
             )
             context.user_data["ctrPertanyaan"] = ctr+1      
             return question        
-        else:                         
+        else:   
+            Jawaban = ""                      
+            if context.user_data["jawaban"] < 8 :
+                Jawaban = "HASIL SURVEI :"+'\n'+"Anda beresiko RENDAH terpapar virus Covid-19 "+ '\n' + '✅**Anda Diijinkan Masuk Kantor**✅'
+            elif 7 < context.user_data["jawaban"] < 15 :
+                Jawaban = "HASIL SURVEI :"+'\n'+"Anda beresiko SEDANG terpapar virus Covid-19 "+ '\n' + '🚫**Anda Tidak Diijinkan Masuk Kantor**🚫'
+            else:
+                Jawaban = "HASIL SURVEI :"+'\n'+"Anda beresiko TINGGI terpapar virus Covid-19 "+ '\n' + '🚫**Anda Tidak Diijinkan Masuk Kantor**🚫'
             update.message.reply_text(
-                context.user_data["jawaban"],reply_markup=ReplyKeyboardRemove()
+                Jawaban,reply_markup=ReplyKeyboardRemove()
             )            
             d3 = today.strftime("%y/%m/%d")
             query = "INSERT INTO data_survey (NIK, tanggal_isi, skor) VALUES (%s, %s, %s)"
