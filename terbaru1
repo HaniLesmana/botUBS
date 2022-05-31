@@ -1,5 +1,6 @@
 from cmath import log
 import logging
+from multiprocessing import connection
 import telebot
 from datetime import date
 from tabulate import tabulate
@@ -32,7 +33,7 @@ reply_keyboard = [
 ]
 markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
 today = date.today()
-question,step1, step2, hitungNilai,stepAdmin1, stepAdminCreate,stepAdminRead = range(7)
+question,step1, step2, hitungNilai, stepAdmin ,stepAdmin1, stepAdminCreate,stepAdminRead,stepAdminDelete = range(9)
 
 def start(update: Update, context: CallbackContext) -> int:
     """Start the conversation and ask user for input."""        
@@ -53,13 +54,14 @@ def cekData(update: Update, context: CallbackContext) -> int:
     print(phone)
     sql.execute("select * from karyawan where phone_number = '{}' ".format(phone))
     hasil_sql = sql.fetchall()
-    if phone == '+62895800288077' :
+    if phone == '+6289634522355' :
         context.user_data['nik'] = "hasil_sql[0][0]"
         context.user_data['nama'] = "hasil_sql[0][1]"
         context.user_data['ctrPertanyaan'] = 0
-        context.user_data['jawaban'] = 0 
+        context.user_data['jawaban'] = 0
+        context.user_data['tipe_admin'] = "" 
         update.message.reply_text(f'Halo, Admin. Please click "/continue" to start')
-        return question
+        return stepAdmin1
 
     if len(hasil_sql)<=0 :
         update.message.reply_text('Maaf, Anda tidak terdaftar', reply_markup=ReplyKeyboardRemove())
@@ -115,12 +117,18 @@ def cekData(update: Update, context: CallbackContext) -> int:
 
 def admin1(update: Update, context: CallbackContext) -> int:
     keyboard = [
-        ["1. Create","2. Read","3. Update","4. Delete"],
+        ["1. Create","2. Read","3. Delete"],
     ]           
     markupadmin1 = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
     if len(context.user_data)>0:
+        if update.message.text == "2. Read":
+            return stepAdminRead
+        if update.message.text == "1. Create":
+            return stepAdminCreate
+        if update.message.text == "3. Delete":
+            return stepAdminDelete
         update.message.reply_text(
-            'Admin Ingin apa? \n 1. Create Pertanyaan \n 2. Read Pertanyaan \n 3. Update Pertanyaan \n 4. Delete Pertanyaan',reply_markup=markupadmin1 
+            'Admin Ingin apa? \n 1. Create Pertanyaan \n 2. Read Pertanyaan \n 3. Delete Pertanyaan',reply_markup=markupadmin1 
         )
         return stepAdminCreate
     else :
@@ -134,59 +142,147 @@ def adminCreate(update: Update, context: CallbackContext) -> int:
         if update.message.text == "/done":
             return stepAdmin1
         else :
-            update.message.reply_text(
-                'Inputkan pertanyaan! (Format : pertanyaan-nilai), Click /done untuk stop' 
-            )            
-            if update.message.text != "1. Create":                
-                try:
-                    text = update.message.text.split("-") 
-                    pertanyaan = text[0]
-                    nilai = text[1]  
-                except:
-                    format_salah = True
-                    update.message.reply_text('Format salah (Contoh : "pertanyaan-nilai")')
-                
-                if format_salah == False :            
-                    sql.execute("select count(*) from data_pertanyaan")
-                    hasilquery = sql.fetchone()
-                    hasil = str((hasilquery[0]+1))
-                    id = "P_"+(hasil).zfill(3)
-                    query = "INSERT INTO data_pertanyaan (ID_pertanyaan, pertanyaan, nilai) VALUES (%s, %s, %s)"
-                    val = (id, pertanyaan, nilai)
+            if update.message.text=="1. Create":
+               context.user_data["tipe_admin"]="create"
+            elif update.message.text=="2. Read":
+               context.user_data["tipe_admin"]="read"
+            elif update.message.text=="3. Delete":
+               context.user_data["tipe_admin"]="delete" 
+            print(update.message.text)
+            print(context.user_data["tipe_admin"])
+            if context.user_data["tipe_admin"]=="create":
+                update.message.reply_text(
+                    'Inputkan pertanyaan! (Format : pertanyaan-nilai), Click /done untuk stop' 
+                )            
+                if update.message.text != "1. Create":                
+                    try:
+                        text = update.message.text.split("-") 
+                        pertanyaan = text[0]
+                        nilai = text[1]  
+                    except:
+                        format_salah = True
+                        update.message.reply_text('Format salah (Contoh : "pertanyaan-nilai")')
+                    
+                    if format_salah == False :            
+                        sql.execute("select max(substr(ID_pertanyaan,3,4)) from data_pertanyaan")
+                        hasilquery = sql.fetchone()
+                        hasil = int(hasilquery[0])+1
+                        id = "P_"+str(hasil).zfill(3)
+                        query = "INSERT INTO data_pertanyaan (ID_pertanyaan, pertanyaan, nilai) VALUES (%s, %s, %s)"
+                        val = (id, pertanyaan, nilai)
+                        sql.execute(query, val) 
+                        mydb.commit()
+                return stepAdminCreate
+            elif context.user_data["tipe_admin"]=="read":
+                sql.execute("SELECT * from data_pertanyaan")
+                hasil = sql.fetchall()
+                col_names = ["Id    ","               Pertanyaan             "," Nilai "]
+                update.message.reply_text(
+                    tabulate(hasil, headers=col_names)
+                )
+                update.message.reply_text(
+                    'Click /done untuk stop' 
+                )
+            elif context.user_data["tipe_admin"]=="delete":
+                sql.execute("SELECT * from data_pertanyaan")
+                hasil = sql.fetchall()
+                col_names = ["Id    ","               Pertanyaan             "," Nilai "]
+                update.message.reply_text(
+                    tabulate(hasil, headers=col_names)
+                )
+                update.message.reply_text(
+                    'Delete pertanyaan! (Format: id_pertanyaan, cth : P_001) Click /done untuk stop' 
+                )
+                if update.message.text != "3. Delete":                
+                    query = "DELETE FROM data_pertanyaan WHERE ID_pertanyaan = %s"
+                    val = (update.message.text,)
                     sql.execute(query, val) 
                     mydb.commit()
-            return stepAdminCreate
+                    print(sql.rowcount, "record(s) deleted")
+                return stepAdminCreate
     else :
         update.message.reply_text(
             'Please click "/start"' 
         )
 def adminRead(update: Update, context: CallbackContext) -> int:
-    if len(context.user_data)>0:        
-        sql.execute("SELECT * from data_pertanyaan")
-        hasil = sql.fetchall()
-        col_names = ["Id    ","               Pertanyaan             "," Nilai "]
-        # temp = []
-        # for i in range(len(hasil)):
-        #     temp.append("ID Pertanyaan : "+ str(hasil[i][0])+ " pertanyaan: "+ str(hasil[i][1])+ "nilai : "+ str(hasil[i][2]))                 
-        update.message.reply_text(
-            tabulate(hasil, headers=col_names)
-        )
+    if len(context.user_data)>0:  
+        if update.message.text == "/done":
+            return stepAdmin1
+        else :
+            sql.execute("SELECT * from data_pertanyaan")
+            hasil = sql.fetchall()
+            col_names = ["Id    ","               Pertanyaan             "," Nilai "]
+            update.message.reply_text(
+                tabulate(hasil, headers=col_names)
+            )
+            update.message.reply_text(
+                'Click /done untuk stop' 
+            )
     else :
         update.message.reply_text(
             'Please click "/start"' 
         )
 
-def adminUpdate(update: Update, context: CallbackContext) -> int:
-    if len(context.user_data)>0:        
-        sql.execute("SELECT * from data_pertanyaan")
-        hasil = sql.fetchall()
-        col_names = ["Id    ","               Pertanyaan             "," Nilai "]
-        # temp = []
-        # for i in range(len(hasil)):
-        #     temp.append("ID Pertanyaan : "+ str(hasil[i][0])+ " pertanyaan: "+ str(hasil[i][1])+ "nilai : "+ str(hasil[i][2]))                 
-        update.message.reply_text(
-            tabulate(hasil, headers=col_names)
-        )
+# def adminUpdate(update: Update, context: CallbackContext) -> int:
+#     if len(context.user_data)>0:  
+#         if update.message.text == "/done":
+#             return stepAdmin1
+#         if update.message.text == "2. Read":
+#             return stepAdminRead
+#         if update.message.text == "1. Create":
+#             return stepAdminCreate
+#         if update.message.text == "4. Delete":
+#             return stepAdminDelete
+#         else :
+#             sql.execute("SELECT * from data_pertanyaan")
+#             hasil = sql.fetchall()
+#             col_names = ["Id    ","               Pertanyaan             "," Nilai "]
+#             update.message.reply_text(
+#                 tabulate(hasil, headers=col_names)
+#             )
+#             update.message.reply_text(
+#                 'Update pertanyaan! (Format : id-pertanyaan-nilai), Click /done untuk stop' 
+#             ) 
+#             try:
+#                 text = update.message.text.split("-") 
+#                 pertanyaan = text[0]
+#                 nilai = text[1]  
+#             except:
+#                 format_salah = True
+#                 update.message.reply_text('Format salah (Contoh : "id-pertanyaan-nilai")')                
+#             if format_salah == False :            
+#                 query = "UPDATE data_pertanyaan set pertanyaan, nilai VALUES (%s, %s) where id_pertanyaan"
+#                 val = (id, pertanyaan, nilai)
+#                 sql.execute(query, val) 
+#                 mydb.commit()
+#             return stepAdminUpdate
+            
+#     else :
+#         update.message.reply_text(
+#             'Please click "/start"' 
+#         )
+
+def adminDelete(update: Update, context: CallbackContext) -> int:
+    if len(context.user_data)>0:  
+        if update.message.text == "/done":
+            return stepAdmin1
+        else :
+            sql.execute("SELECT * from data_pertanyaan")
+            hasil = sql.fetchall()
+            col_names = ["Id    ","               Pertanyaan             "," Nilai "]
+            update.message.reply_text(
+                tabulate(hasil, headers=col_names)
+            )
+            update.message.reply_text(
+                'Delete pertanyaan! (Format: id_pertanyaan, cth : P_001) Click /done untuk stop' 
+            )
+            if update.message.text != "3. Delete":                
+                query = "DELETE FROM data_pertanyaan WHERE ID_pertanyaan = %s"
+                id = update.message.text
+                val = (id)
+                sql.execute(query, val) 
+                mydb.commit()
+            return stepAdminCreate
     else :
         update.message.reply_text(
             'Please click "/start"' 
@@ -257,14 +353,16 @@ def main() -> None:
                 MessageHandler(Filters.regex('^(/continue|/done)$'), admin1),                
             ],
             stepAdminCreate: [                
-                MessageHandler(Filters.regex('^2. Read$'), adminRead),
-                MessageHandler(Filters.regex('^(1. Create$|\w)'), adminCreate),                
+                MessageHandler(Filters.regex('^(/done)$'), admin1),
+                MessageHandler(Filters.regex('^(\d|\w|.)'), adminCreate)   
             ],
-            stepAdminRead: [
-                MessageHandler(
-                    Filters.text & ~(Filters.command), adminRead
-                ),             
-            ],
+            # stepAdminRead: [
+            #     MessageHandler(Filters.regex('^(/done)'), admin1),
+                
+            # ],
+            # stepAdminDelete: [
+            #     MessageHandler(Filters.regex('^(/done)'), admin1),
+            # ],
             step1: [
                 MessageHandler(Filters.contact, cekData),
                 MessageHandler(
