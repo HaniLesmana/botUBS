@@ -54,7 +54,7 @@ def cekData(update: Update, context: CallbackContext) -> int:
     print(phone)
     sql.execute("select * from karyawan where phone_number = '{}' ".format(phone))
     hasil_sql = sql.fetchall()
-    if phone == '+6289634522355' :
+    if phone == '+62895800288077' :
         context.user_data['nik'] = "hasil_sql[0][0]"
         context.user_data['nama'] = "hasil_sql[0][1]"
         context.user_data['ctrPertanyaan'] = 0
@@ -76,6 +76,7 @@ def cekData(update: Update, context: CallbackContext) -> int:
             context.user_data['nama'] = hasil_sql[0][1]
             context.user_data['ctrPertanyaan'] = 0
             context.user_data['jawaban'] = 0 
+            context.user_data['phone'] = phone
             update.message.reply_text(f'Halo, {hasil_sql[0][1]}. Please click "/continue" to start')
             return question
 
@@ -314,8 +315,8 @@ def quest1(update: Update, context: CallbackContext) -> int:
                 Jawaban,reply_markup=ReplyKeyboardRemove()
             )            
             d3 = today.strftime("%y/%m/%d")
-            query = "INSERT INTO data_survey (NIK, tanggal_isi, skor) VALUES (%s, %s, %s)"
-            val = (context.user_data["nik"],d3 , context.user_data["jawaban"])
+            query = "INSERT INTO data_survey (NIK, tanggal_isi, skor, phone_number) VALUES (%s, %s, %s,%s)"
+            val = (context.user_data["nik"],d3 , context.user_data["jawaban"], context.user_data['phone'] )
             sql.execute(query, val) 
             mydb.commit()
             return hitungNilai  
