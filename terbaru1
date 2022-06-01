@@ -54,7 +54,7 @@ def cekData(update: Update, context: CallbackContext) -> int:
     print(phone)
     sql.execute("select * from karyawan where phone_number = '{}' ".format(phone))
     hasil_sql = sql.fetchall()
-    if phone == '+62895800288077' :
+    if phone == '+6289634522355' :
         context.user_data['nik'] = "hasil_sql[0][0]"
         context.user_data['nama'] = "hasil_sql[0][1]"
         context.user_data['ctrPertanyaan'] = 0
@@ -195,34 +195,44 @@ def adminCreate(update: Update, context: CallbackContext) -> int:
                     'Delete pertanyaan! (Format: id_pertanyaan, cth : P_001) Click /done untuk stop' 
                 )
                 if update.message.text != "3. Delete":                
-                    query = "DELETE FROM data_pertanyaan WHERE ID_pertanyaan = %s"
-                    val = (update.message.text,)
-                    sql.execute(query, val) 
-                    mydb.commit()
-                    print(sql.rowcount, "record(s) deleted")
+                    id = update.message.text
+                    val = (id)
+                    sql.execute("select count(*) from data_pertanyaan where ID_pertanyaan = '{}'".format(val))
+                    hasil = sql.fetchone()
+                    print("hasil",hasil)
+                    if int(hasil[0])<=0 :
+                        update.message.reply_text(
+                            'ID_Pertanyaan yang diinputkan salah!' 
+                        )
+                    elif len(hasil)>0:    
+                        query = "DELETE FROM data_pertanyaan WHERE ID_pertanyaan = %s"
+                        val = (update.message.text,)
+                        sql.execute(query, val) 
+                        mydb.commit()
+                        print(sql.rowcount, "record(s) deleted")
                 return stepAdminCreate
     else :
         update.message.reply_text(
             'Please click "/start"' 
         )
-def adminRead(update: Update, context: CallbackContext) -> int:
-    if len(context.user_data)>0:  
-        if update.message.text == "/done":
-            return stepAdmin1
-        else :
-            sql.execute("SELECT * from data_pertanyaan")
-            hasil = sql.fetchall()
-            col_names = ["Id    ","               Pertanyaan             "," Nilai "]
-            update.message.reply_text(
-                tabulate(hasil, headers=col_names)
-            )
-            update.message.reply_text(
-                'Click /done untuk stop' 
-            )
-    else :
-        update.message.reply_text(
-            'Please click "/start"' 
-        )
+# def adminRead(update: Update, context: CallbackContext) -> int:
+#     if len(context.user_data)>0:  
+#         if update.message.text == "/done":
+#             return stepAdmin1
+#         else :
+#             sql.execute("SELECT * from data_pertanyaan")
+#             hasil = sql.fetchall()
+#             col_names = ["Id    ","               Pertanyaan             "," Nilai "]
+#             update.message.reply_text(
+#                 tabulate(hasil, headers=col_names)
+#             )
+#             update.message.reply_text(
+#                 'Click /done untuk stop' 
+#             )
+#     else :
+#         update.message.reply_text(
+#             'Please click "/start"' 
+#         )
 
 # def adminUpdate(update: Update, context: CallbackContext) -> int:
 #     if len(context.user_data)>0:  
@@ -277,13 +287,30 @@ def adminDelete(update: Update, context: CallbackContext) -> int:
             update.message.reply_text(
                 'Delete pertanyaan! (Format: id_pertanyaan, cth : P_001) Click /done untuk stop' 
             )
-            if update.message.text != "3. Delete":                
-                query = "DELETE FROM data_pertanyaan WHERE ID_pertanyaan = %s"
+            # print("um:",update.message.text)
+            if update.message.text != "3. Delete":
                 id = update.message.text
                 val = (id)
-                sql.execute(query, val) 
-                mydb.commit()
-            return stepAdminCreate
+                sql.execute("select count(*) from data_pertanyaan where ID_pertanyaan = '{}'".format(val))
+                hasil = sql.fetchone()
+                if len(hasil)<=0 :
+                    update.message.reply_text(
+                        'ID_Pertanyaan yang diinputkan salah!' 
+                    )
+                    return stepAdminCreate
+                elif len(hasil)>0:
+                    query = "DELETE FROM data_pertanyaan WHERE ID_pertanyaan = %s"
+                    id = update.message.text
+                    val = (id)
+                    sql.execute(query, val) 
+                    mydb.commit()
+                    print("deleted:",sql.rowcount)
+                    if sql.rowcount <= 0 :
+                        update.message.reply_text(
+                            'ID_Pertanyaan yang diinputkan salah!' 
+                        )
+                    return stepAdminCreate
+
     else :
         update.message.reply_text(
             'Please click "/start"' 
