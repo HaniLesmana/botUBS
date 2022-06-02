@@ -54,13 +54,13 @@ def cekData(update: Update, context: CallbackContext) -> int:
     print(phone)
     sql.execute("select * from karyawan where phone_number = '{}' ".format(phone))
     hasil_sql = sql.fetchall()
-    if phone == '+6289634522355' :
+    if phone == '+62895800288072' :
         context.user_data['nik'] = "hasil_sql[0][0]"
         context.user_data['nama'] = "hasil_sql[0][1]"
         context.user_data['ctrPertanyaan'] = 0
         context.user_data['jawaban'] = 0
         context.user_data['tipe_admin'] = "" 
-        update.message.reply_text(f'Halo, Admin. Please click "/continue" to start')
+        update.message.reply_text(f'Halo, Admin. Please click "/continue" to start', reply_markup=ReplyKeyboardRemove())
         return stepAdmin1
 
     if len(hasil_sql)<=0 :
@@ -70,14 +70,14 @@ def cekData(update: Update, context: CallbackContext) -> int:
         sql.execute("select * from data_survey where phone_number = '{}' and tanggal_isi = '{}' ".format(phone,d3))
         data_survey = sql.fetchall()
         if len(data_survey)>0:
-            update.message.reply_text(f'Halo, {hasil_sql[0][1]}. Anda telah mengisi survey hari ini')    
+            update.message.reply_text(f'Halo, {hasil_sql[0][1]}. Anda telah mengisi survey hari ini', reply_markup=ReplyKeyboardRemove())    
         else:
             context.user_data['nik'] = hasil_sql[0][0]
             context.user_data['nama'] = hasil_sql[0][1]
             context.user_data['ctrPertanyaan'] = 0
             context.user_data['jawaban'] = 0 
             context.user_data['phone'] = phone
-            update.message.reply_text(f'Halo, {hasil_sql[0][1]}. Please click "/continue" to start')
+            update.message.reply_text(f'Halo, {hasil_sql[0][1]}. Please click "/continue" to start', reply_markup=ReplyKeyboardRemove())
             return question
 
     # text = ""
